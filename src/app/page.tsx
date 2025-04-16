@@ -3,38 +3,33 @@
 import React, { useEffect, useState } from "react";
 import AgoraRTC, {
   IAgoraRTCClient,
-  IRemoteAudioTrack,
   IRemoteUser,
+  ILocalAudioTrack,
+  IRemoteAudioTrack,
 } from "agora-rtc-sdk-ng";
 
-const APP_ID = "732e1ffcf3694567bdef7ca4c7a3374e"; // 🔁 Replace with your real App ID
-const CHANNEL_NAME = "test-room"; // You can change this dynamically
-const TOKEN = null; // Or generate a token for production
+const APP_ID = "732e1ffcf3694567bdef7ca4c7a3374e";
+const CHANNEL = "test-room";
+const TOKEN = null;
 
 export default function AudioRoom() {
   const [client, setClient] = useState<IAgoraRTCClient | null>(null);
-  const [localAudioTrack, setLocalAudioTrack] = useState<any>(null);
+  const [localAudioTrack, setLocalAudioTrack] =
+    useState<ILocalAudioTrack | null>(null);
   const [remoteUsers, setRemoteUsers] = useState<IRemoteUser[]>([]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const init = async () => {
       const agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
       setClient(agoraClient);
 
-      // Join room
-      const uid = await agoraClient.join(
-        APP_ID,
-        CHANNEL_NAME,
-        TOKEN || null,
-        null
-      );
+      await agoraClient.join(APP_ID, CHANNEL, TOKEN || null, null);
 
       const localTrack = await AgoraRTC.createMicrophoneAudioTrack();
       setLocalAudioTrack(localTrack);
-
       await agoraClient.publish([localTrack]);
 
-      // Handle remote users
       agoraClient.on("user-published", async (user, mediaType) => {
         await agoraClient.subscribe(user, mediaType);
         if (mediaType === "audio") {
