@@ -8,7 +8,7 @@ import AgoraRTC, {
 } from "agora-rtc-sdk-ng";
 import type IRemoteUser from "agora-rtc-sdk-ng";
 
-const APP_ID = "YOUR_AGORA_APP_ID";
+const APP_ID = "732e1ffcf3694567bdef7ca4c7a3374e";
 const TOKEN = null; // Or your generated token
 const CHANNEL = "test-room";
 
