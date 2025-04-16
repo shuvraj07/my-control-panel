@@ -1,169 +1,76 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import AgoraRTC, {
+  IAgoraRTCClient,
+  IRemoteAudioTrack,
+  IRemoteUser,
+} from "agora-rtc-sdk-ng";
 
-const SIGNALING_SERVER = "wss://golang-k2mu.onrender.com/ws"; // Your WebSocket signaling server
+const APP_ID = "732e1ffcf3694567bdef7ca4c7a3374e"; // 🔁 Replace with your real App ID
+const CHANNEL_NAME = "test-room"; // You can change this dynamically
+const TOKEN = null; // Or generate a token for production
 
-const rooms = [
-  { id: "room1", name: "🌍 World Chat", thumbnail: "/world.jpg" },
-  { id: "room2", name: "🎮 Gamers Lounge", thumbnail: "/game.jpg" },
-  { id: "room3", name: "🎵 Music Jam", thumbnail: "/music.jpg" },
-];
-
-export default function Home() {
-  const [currentRoom, setCurrentRoom] = useState<string | null>(null);
-  const [connected, setConnected] = useState(false);
-  const [joined, setJoined] = useState(false);
-
-  const remoteAudioRef = useRef<HTMLAudioElement>(null);
-  const ws = useRef<WebSocket | null>(null);
-  const peer = useRef<RTCPeerConnection | null>(null);
-  const localStream = useRef<MediaStream | null>(null);
+export default function AudioRoom() {
+  const [client, setClient] = useState<IAgoraRTCClient | null>(null);
+  const [localAudioTrack, setLocalAudioTrack] = useState<any>(null);
+  const [remoteUsers, setRemoteUsers] = useState<IRemoteUser[]>([]);
 
   useEffect(() => {
-    if (!currentRoom) return;
+    const init = async () => {
+      const agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+      setClient(agoraClient);
 
-    ws.current = new WebSocket(SIGNALING_SERVER);
+      // Join room
+      const uid = await agoraClient.join(
+        APP_ID,
+        CHANNEL_NAME,
+        TOKEN || null,
+        null
+      );
 
-    ws.current.onopen = () => {
-      console.log("✅ WebSocket connected");
-      setConnected(true);
-      ws.current?.send(JSON.stringify({ type: "join", room: currentRoom }));
+      const localTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      setLocalAudioTrack(localTrack);
+
+      await agoraClient.publish([localTrack]);
+
+      // Handle remote users
+      agoraClient.on("user-published", async (user, mediaType) => {
+        await agoraClient.subscribe(user, mediaType);
+        if (mediaType === "audio") {
+          const remoteAudioTrack = user.audioTrack as IRemoteAudioTrack;
+          remoteAudioTrack.play();
+        }
+        setRemoteUsers((prev) => [...prev, user]);
+      });
+
+      agoraClient.on("user-unpublished", (user) => {
+        setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
+      });
+
+      agoraClient.on("user-left", (user) => {
+        setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
+      });
     };
 
-    ws.current.onmessage = async (event) => {
-      const data = JSON.parse(event.data);
-      switch (data.type) {
-        case "offer":
-          await peer.current?.setRemoteDescription(
-            new RTCSessionDescription(data.offer)
-          );
-          const answer = await peer.current?.createAnswer();
-          await peer.current?.setLocalDescription(answer!);
-          ws.current?.send(
-            JSON.stringify({ type: "answer", answer, room: currentRoom })
-          );
-          break;
-
-        case "answer":
-          await peer.current?.setRemoteDescription(
-            new RTCSessionDescription(data.answer)
-          );
-          break;
-
-        case "candidate":
-          await peer.current?.addIceCandidate(
-            new RTCIceCandidate(data.candidate)
-          );
-          break;
-      }
-    };
+    init();
 
     return () => {
-      ws.current?.send(JSON.stringify({ type: "leave", room: currentRoom }));
-      ws.current?.close();
+      client?.leave();
+      localAudioTrack?.stop();
+      localAudioTrack?.close();
     };
-  }, [currentRoom]);
-
-  const joinRoom = async () => {
-    peer.current = new RTCPeerConnection();
-
-    peer.current.onicecandidate = (e) => {
-      if (e.candidate) {
-        ws.current?.send(
-          JSON.stringify({
-            type: "candidate",
-            candidate: e.candidate,
-            room: currentRoom,
-          })
-        );
-      }
-    };
-
-    peer.current.ontrack = (event) => {
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = event.streams[0];
-      }
-    };
-
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    localStream.current = stream;
-
-    stream
-      .getTracks()
-      .forEach((track) => peer.current?.addTrack(track, stream));
-
-    const offer = await peer.current.createOffer();
-    await peer.current.setLocalDescription(offer);
-
-    ws.current?.send(
-      JSON.stringify({ type: "offer", offer, room: currentRoom })
-    );
-
-    setJoined(true);
-  };
+  }, []);
 
   return (
-    <main className="min-h-screen bg-gray-100 p-6">
-      {!currentRoom ? (
-        <>
-          <h1 className="text-3xl font-bold mb-6">🎙️ Explore Rooms</h1>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {rooms.map((room) => (
-              <div
-                key={room.id}
-                onClick={() => setCurrentRoom(room.id)}
-                className="cursor-pointer rounded overflow-hidden shadow-lg bg-white hover:shadow-xl transition"
-              >
-                <img
-                  src={room.thumbnail}
-                  alt={room.name}
-                  className="w-full h-40 object-cover"
-                />
-                <div className="p-4">
-                  <h2 className="text-lg font-semibold">{room.name}</h2>
-                  <p className="text-sm text-gray-600">Click to join</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      ) : (
-        <div>
-          <h1 className="text-2xl font-bold mb-4">Room: {currentRoom}</h1>
-
-          <button
-            onClick={joinRoom}
-            disabled={!connected || joined}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-          >
-            {joined
-              ? "In Room"
-              : connected
-              ? "Join Audio Room"
-              : "Connecting..."}
-          </button>
-
-          <button
-            onClick={() => {
-              setCurrentRoom(null);
-              setConnected(false);
-              setJoined(false);
-              peer.current?.close();
-            }}
-            className="ml-4 bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500"
-          >
-            🔙 Back to Rooms
-          </button>
-
-          <div className="mt-6 space-y-4">
-            <div>
-              <p className="font-semibold">🗣️ Others:</p>
-              <audio ref={remoteAudioRef} autoPlay controls />
-            </div>
-          </div>
-        </div>
-      )}
-    </main>
+    <div className="p-6">
+      <h1 className="text-xl font-bold mb-4">🎙️ Audio Room</h1>
+      <p className="mb-4">Connected Users:</p>
+      <ul className="list-disc pl-6">
+        {remoteUsers.map((user) => (
+          <li key={user.uid.toString()}>👤 User ID: {user.uid.toString()}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
