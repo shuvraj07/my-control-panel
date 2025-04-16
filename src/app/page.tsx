@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 
-const SIGNALING_SERVER = "wss://golang-k2mu.onrender.com/ws"; // Change if needed
+const SIGNALING_SERVER = "wss://golang-k2mu.onrender.com/ws"; // Your WebSocket signaling server
 
 const rooms = [
   { id: "room1", name: "🌍 World Chat", thumbnail: "/world.jpg" },
@@ -15,7 +15,6 @@ export default function Home() {
   const [connected, setConnected] = useState(false);
   const [joined, setJoined] = useState(false);
 
-  const localAudioRef = useRef<HTMLAudioElement>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const ws = useRef<WebSocket | null>(null);
   const peer = useRef<RTCPeerConnection | null>(null);
@@ -89,9 +88,7 @@ export default function Home() {
 
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     localStream.current = stream;
-    if (localAudioRef.current) {
-      localAudioRef.current.srcObject = stream;
-    }
+
     stream
       .getTracks()
       .forEach((track) => peer.current?.addTrack(track, stream));
@@ -160,10 +157,6 @@ export default function Home() {
           </button>
 
           <div className="mt-6 space-y-4">
-            <div>
-              <p className="font-semibold">🎧 You:</p>
-              <audio ref={localAudioRef} autoPlay controls />
-            </div>
             <div>
               <p className="font-semibold">🗣️ Others:</p>
               <audio ref={remoteAudioRef} autoPlay controls />
