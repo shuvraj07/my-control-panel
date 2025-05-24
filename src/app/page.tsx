@@ -1,63 +1,17 @@
+// EkcampRoom.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
-import AgoraRTC, {
-  IAgoraRTCClient,
-  ILocalAudioTrack,
-  IRemoteAudioTrack,
-} from "agora-rtc-sdk-ng";
-import type IRemoteUser from "agora-rtc-sdk-ng";
+import React from "react";
 
-const APP_ID = "732e1ffcf3694567bdef7ca4c7a3374e";
-const TOKEN = null; // Or your generated token
-const CHANNEL = "test-room";
+import ClubhouseLanding from "./clubhouse/page";
+import TopBar from "./topbar/page";
 
-export default function HomePage() {
-  const [client] = useState<IAgoraRTCClient>(() =>
-    AgoraRTC.createClient({ mode: "rtc", codec: "vp8" })
-  );
-  const [localAudioTrack, setLocalAudioTrack] =
-    useState<ILocalAudioTrack | null>(null);
-  const [remoteUsers, setRemoteUsers] = useState<IRemoteUser[]>([]);
-
-  useEffect(() => {
-    const init = async () => {
-      await client.join(APP_ID, CHANNEL, TOKEN || null, null);
-
-      const micTrack = await AgoraRTC.createMicrophoneAudioTrack();
-      await client.publish([micTrack]);
-
-      setLocalAudioTrack(micTrack);
-
-      client.on("user-published", async (user, mediaType) => {
-        await client.subscribe(user, mediaType);
-        if (mediaType === "audio") {
-          const remoteAudioTrack = user.audioTrack as IRemoteAudioTrack;
-          remoteAudioTrack?.play();
-        }
-        setRemoteUsers((prevUsers) => [...prevUsers, user]);
-      });
-
-      client.on("user-unpublished", (user) => {
-        setRemoteUsers((prevUsers) =>
-          prevUsers.filter((u) => u.uid !== user.uid)
-        );
-      });
-    };
-
-    init();
-
-    return () => {
-      client.leave();
-      localAudioTrack?.close();
-      setRemoteUsers([]);
-    };
-  }, [client, localAudioTrack]);
-
+export default function EkcampRoom() {
   return (
-    <main className="p-4">
-      <h1 className="text-2xl font-bold">Agora Audio Room</h1>
-      <p className="mt-2">Users in room: {remoteUsers.length}</p>
-    </main>
+    <>
+      <div className="relative w-0 h-0 border-l-[15px] border-r-[15px] border-b-[26px] border-l-transparent border-r-transparent border-b-black" />
+
+      <ClubhouseLanding />
+    </>
   );
 }
