@@ -4,7 +4,6 @@
 import React from "react";
 
 import ClubhouseLanding from "./clubhouse/page";
-import TopBar from "./topbar/page";
 
 export default function EkcampRoom() {
   return (
